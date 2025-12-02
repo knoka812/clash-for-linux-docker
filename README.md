@@ -1,4 +1,4 @@
-# Linux 一键安装 Clash
+# Linux docker内一键安装 Clash
 
 ![GitHub License](https://img.shields.io/github/license/nelvko/clash-for-linux-install)
 ![GitHub top language](https://img.shields.io/github/languages/top/nelvko/clash-for-linux-install)
@@ -9,7 +9,8 @@
 - 默认安装 `mihomo` 内核，[可选安装](https://github.com/nelvko/clash-for-linux-install/wiki/FAQ#%E5%AE%89%E8%A3%85-clash-%E5%86%85%E6%A0%B8) `clash`。
 - 支持使用 [subconverter](https://github.com/tindy2013/subconverter) 进行本地订阅转换。
 - 多架构支持，适配主流 `Linux` 发行版：`CentOS 7.6`、`Debian 12`、`Ubuntu 24.04.1 LTS`。
-- 无需再进行更改，本版本可在docker内直接运行使用~，代理本人推荐ikuuu平台，速度还是很快的：[ikuuu](https://ikuuu.de/auth/register?code=m6gp)
+- 无需再进行更改，本版本可在docker内直接运行使用~
+- 代理本人推荐ikuuu平台，速度还是很快的：[ikuuu](https://ikuuu.de/auth/register?code=m6gp)
 
 ## 快速开始
 
