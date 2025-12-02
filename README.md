@@ -26,7 +26,7 @@
 
 ```bash
 git clone --branch master --depth 1 https://gh-proxy.com/https://github.com/knoka812/clash-for-linux-docker.git \
-  && cd clash-for-linux-install \
+  && cd clash-for-linux-docker \
   && bash install.sh
 ```
 
