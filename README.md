@@ -97,7 +97,9 @@ $ clashsecret
 - 通过浏览器打开 Web 控制台，实现可视化操作：切换节点、查看日志等。
 - 若暴露到公网使用建议定期更换密钥。
 - 若使用funhpc趣算云平台，仅需在控制台-对应实例更多配置-暴露端口-暴露9090端口，链接+/ui即可直接访问web控制台，如：
-  ```bash https://mkos0lxrqhatr4pkmakea100.funhpc.com:30499/ui  ```
+```bash
+https://mkos0lxrqhatr4pkmakea100.funhpc.com:30499/ui 
+```
 
 ### 更新订阅
 
