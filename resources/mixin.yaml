@@ -2,7 +2,7 @@ _custom:
   system-proxy:
     enable: true
 
-mixed-port: 7890
+mixed-port: 7892
 
 external-controller: "0.0.0.0:9090"
 external-ui: public

@@ -34,9 +34,9 @@ CLASH_UPDATE_LOG="${CLASH_BASE_DIR}/clashupdate.log"
 _set_var() {
     local user=$USER
     local home=$HOME
-    [ -n "$SUDO_USER" ] && {
-        user=$SUDO_USER
-        home=$(awk -F: -v user="$SUDO_USER" '$1==user{print $6}' /etc/passwd)
+    [ -n "$_USER" ] && {
+        user=$_USER
+        home=$(awk -F: -v user="$_USER" '$1==user{print $6}' /etc/passwd)
     }
 
     [ -n "$BASH_VERSION" ] && {
@@ -134,19 +134,19 @@ _get_random_port() {
 }
 
 function _get_proxy_port() {
-    MIXED_PORT=$(sudo "$BIN_YQ" '.mixed-port' $CLASH_CONFIG_RUNTIME)
+    MIXED_PORT=$( "$BIN_YQ" '.mixed-port' $CLASH_CONFIG_RUNTIME)
 
     _is_already_in_use "$MIXED_PORT" "$BIN_KERNEL_NAME" && {
         local newPort=$(_get_random_port)
         local msg="端口占用：${MIXED_PORT} 🎲 随机分配：$newPort"
-        sudo "$BIN_YQ" -i ".mixed-port = $newPort" $CLASH_CONFIG_RUNTIME
+         "$BIN_YQ" -i ".mixed-port = $newPort" $CLASH_CONFIG_RUNTIME
         MIXED_PORT=$newPort
         _failcat '🎯' "$msg"
     }
 }
 
 function _get_ui_port() {
-    local ext_addr=$(sudo "$BIN_YQ" '.external-controller // ""' $CLASH_CONFIG_RUNTIME)
+    local ext_addr=$( "$BIN_YQ" '.external-controller // ""' $CLASH_CONFIG_RUNTIME)
     local ext_ip=${ext_addr%%:*}
     EXT_IP=$ext_ip
     EXT_PORT=${ext_addr##*:}
@@ -155,7 +155,7 @@ function _get_ui_port() {
     _is_already_in_use "$EXT_PORT" "$BIN_KERNEL_NAME" && {
         local newPort=$(_get_random_port)
         local msg="端口占用：${EXT_PORT} 🎲 随机分配：$newPort"
-        sudo "$BIN_YQ" -i ".external-controller = \"$ext_ip:$newPort\"" $CLASH_CONFIG_RUNTIME
+         "$BIN_YQ" -i ".external-controller = \"$ext_ip:$newPort\"" $CLASH_CONFIG_RUNTIME
         EXT_PORT=$newPort
         _failcat '🎯' "$msg"
     }
@@ -197,8 +197,8 @@ function _failcat() {
 
 function _quit() {
     local user=root
-    [ -n "$SUDO_USER" ] && user=$SUDO_USER
-    exec sudo -u "$user" -- "$_SHELL" -i
+    [ -n "$_USER" ] && user=$_USER
+    exec  -u "$user" -- "$_SHELL" -i
 }
 
 function _error_quit() {
@@ -214,7 +214,7 @@ function _error_quit() {
 
 _is_bind() {
     local port=$1
-    { sudo ss -lnptu || sudo netstat -lnptu; } | grep ":${port}\b"
+    {  ss -lnptu ||  netstat -lnptu; } | grep ":${port}\b"
 }
 
 _is_already_in_use() {
@@ -228,17 +228,17 @@ function _is_root() {
 }
 
 function _valid_env() {
-    _is_root || _error_quit "需要 root 或 sudo 权限执行"
-    [ "$(ps -p 1 -o comm=)" != "systemd" ] && _error_quit "系统不具备 systemd"
+    _is_root || _error_quit "需要 root 或  权限执行"
+    # 移除systemd检查：Docker容器内进程1不是systemd，无需此判断
 }
 
 function _valid_config() {
     [ -e "$1" ] && [ "$(wc -l <"$1")" -gt 1 ] && {
         local cmd msg
-        cmd="sudo $BIN_KERNEL -d $(dirname "$1") -f $1 -t"
-        local is_dat=$(sudo "$BIN_YQ" '.geodata-mode // false' "$1")
+        cmd=" $BIN_KERNEL -d $(dirname "$1") -f $1 -t"
+        local is_dat=$( "$BIN_YQ" '.geodata-mode // false' "$1")
         [ "$is_dat" = "true" ] && {
-            sudo "$BIN_YQ" -i ".geodata-mode = false" "$1"
+             "$BIN_YQ" -i ".geodata-mode = false" "$1"
         }
         msg=$(eval "$cmd") || {
             eval "$cmd"
@@ -297,7 +297,7 @@ _download_raw_config() {
     local dest=$1
     local url=$2
     local agent='clash-verge/v2.0.4'
-    sudo curl \
+    curl \
         --silent \
         --show-error \
         --insecure \
@@ -307,7 +307,7 @@ _download_raw_config() {
         --user-agent "$agent" \
         --output "$dest" \
         "$url" ||
-        sudo wget \
+        wget \
             --no-verbose \
             --no-check-certificate \
             --timeout 3 \
@@ -353,14 +353,14 @@ _start_convert() {
         local newPort=$(_get_random_port)
         _failcat '🎯' "端口占用：$BIN_SUBCONVERTER_PORT 🎲 随机分配：$newPort"
         [ ! -e "$BIN_SUBCONVERTER_CONFIG" ] && {
-            sudo /bin/cp -f "$BIN_SUBCONVERTER_DIR/pref.example.yml" "$BIN_SUBCONVERTER_CONFIG"
+             /bin/cp -f "$BIN_SUBCONVERTER_DIR/pref.example.yml" "$BIN_SUBCONVERTER_CONFIG"
         }
-        sudo "$BIN_YQ" -i ".server.port = $newPort" "$BIN_SUBCONVERTER_CONFIG"
+         "$BIN_YQ" -i ".server.port = $newPort" "$BIN_SUBCONVERTER_CONFIG"
         BIN_SUBCONVERTER_PORT=$newPort
     }
     local start=$(date +%s)
     # 子shell运行，屏蔽kill时的输出
-    (sudo "$BIN_SUBCONVERTER" 2>&1 | sudo tee "$BIN_SUBCONVERTER_LOG" >/dev/null &)
+    ( "$BIN_SUBCONVERTER" 2>&1 |  tee "$BIN_SUBCONVERTER_LOG" >/dev/null &)
     while ! _is_bind "$BIN_SUBCONVERTER_PORT" >&/dev/null; do
         sleep 1s
         local now=$(date +%s)
@@ -368,5 +368,5 @@ _start_convert() {
     done
 }
 _stop_convert() {
-    sudo pkill -9 -f "$BIN_SUBCONVERTER" >&/dev/null
+     pkill -9 -f "$BIN_SUBCONVERTER" >&/dev/null
 }

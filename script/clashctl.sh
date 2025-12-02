@@ -2,10 +2,10 @@
 # shellcheck disable=SC2155
 
 _set_system_proxy() {
-    local auth=$(sudo "$BIN_YQ" '.authentication[0] // ""' "$CLASH_CONFIG_RUNTIME")
+    local auth=$( "$BIN_YQ" '.authentication[0] // ""' "$CLASH_CONFIG_RUNTIME")
     [ -n "$auth" ] && auth=$auth@
 
-    local bind_addr=$(sudo "$BIN_YQ" '.bind-address // ""' "$CLASH_CONFIG_RUNTIME")
+    local bind_addr=$( "$BIN_YQ" '.bind-address // ""' "$CLASH_CONFIG_RUNTIME")
     case $bind_addr in "" | "*" | "0.0.0.0") bind_addr=127.0.0.1 ;; esac
     local http_proxy_addr="http://${auth}${bind_addr}:${MIXED_PORT}"
     local socks_proxy_addr="socks5h://${auth}${bind_addr}:${MIXED_PORT}"
@@ -36,12 +36,14 @@ _unset_system_proxy() {
 
 function clashon() {
     _get_proxy_port
-    systemctl is-active "$BIN_KERNEL_NAME" >&/dev/null || {
-        sudo systemctl start "$BIN_KERNEL_NAME" >/dev/null || {
+    # 替换systemctl检查：用pgrep检查Clash进程是否运行
+    if ! pgrep -x "$BIN_KERNEL_NAME" >&/dev/null; then
+        # 直接启动Clash（后台模式，适配容器内代理环境）
+        "${BIN_KERNEL}" -d "${CLASH_BASE_DIR}" -f "${CLASH_CONFIG_RUNTIME}" >&/dev/null || {
             _failcat '启动失败: 执行 clashstatus 查看日志'
             return 1
         }
-    }
+    fi
     clashproxy status >/dev/null && _set_system_proxy
     _okcat '已开启代理环境'
 }
@@ -49,15 +51,20 @@ function clashon() {
 watch_proxy() {
     # 新开交互式shell，且无代理变量时
     [ -z "$http_proxy" ] && [[ $- == *i* ]] && {
-        # root用户自动开启代理环境（普通用户会触发sudo验证密码导致卡住）
+        # root用户自动开启代理环境（普通用户会触发验证密码导致卡住）
         _is_root && clashon
     }
 }
 
 function clashoff() {
-    sudo systemctl stop "$BIN_KERNEL_NAME" && _okcat '已关闭代理环境' ||
-        _failcat '关闭失败: 执行 "clashstatus" 查看日志' || return 1
-    _unset_system_proxy
+    # 用pkill终止Clash进程（-x精确匹配进程名，-f匹配命令行，确保杀全）
+    if pkill -x "$BIN_KERNEL_NAME" || pkill -f "${BIN_KERNEL_NAME} -d ${CLASH_BASE_DIR}"; then
+        _unset_system_proxy
+        _okcat '已关闭代理环境'
+    else
+        _failcat '关闭失败: 执行 "clashstatus" 查看日志'
+        return 1
+    fi
 }
 
 clashrestart() {
@@ -67,21 +74,25 @@ clashrestart() {
 function clashproxy() {
     case "$1" in
     on)
-        systemctl is-active "$BIN_KERNEL_NAME" >&/dev/null || {
+        # 替换systemctl检查：用pgrep判断Clash进程是否运行
+        if ! pgrep -x "$BIN_KERNEL_NAME" >&/dev/null; then
             _failcat '代理程序未运行，请执行 clashon 开启代理环境'
             return 1
-        }
-        sudo "$BIN_YQ" -i '._custom.system-proxy.enable = true' "$CLASH_CONFIG_MIXIN"
+        fi
+        # 移除，直接执行yq修改配置
+        "$BIN_YQ" -i '._custom.system-proxy.enable = true' "$CLASH_CONFIG_MIXIN"
         _set_system_proxy
         _okcat '已开启系统代理'
         ;;
     off)
-        sudo "$BIN_YQ" -i '._custom.system-proxy.enable = false' "$CLASH_CONFIG_MIXIN"
+        # 移除，直接执行yq修改配置
+        "$BIN_YQ" -i '._custom.system-proxy.enable = false' "$CLASH_CONFIG_MIXIN"
         _unset_system_proxy
         _okcat '已关闭系统代理'
         ;;
     status)
-        local system_proxy_status=$(sudo "$BIN_YQ" '._custom.system-proxy.enable' "$CLASH_CONFIG_MIXIN" 2>/dev/null)
+        # 移除，直接读取配置
+        local system_proxy_status=$("$BIN_YQ" '._custom.system-proxy.enable' "$CLASH_CONFIG_MIXIN" 2>/dev/null)
         [ "$system_proxy_status" = "false" ] && {
             _failcat "系统代理：关闭"
             return 1
@@ -102,7 +113,21 @@ EOF
 }
 
 function clashstatus() {
-    sudo systemctl status "$BIN_KERNEL_NAME" "$@"
+    # 检查Clash进程是否存在
+    if pgrep -x "$BIN_KERNEL_NAME" >&/dev/null; then
+        _okcat "Clash 运行状态："
+        echo "进程PID：$(pgrep -x "$BIN_KERNEL_NAME")"
+        echo "启动命令：${BIN_KERNEL} -d ${CLASH_BASE_DIR} -f ${CLASH_CONFIG_RUNTIME}"
+        echo "进程详情："
+        ps -ef | grep -v grep | grep "$BIN_KERNEL_NAME"
+    else
+        _failcat "Clash 未运行"
+        # 可选：打印最近日志（如果有日志文件）
+        if [ -f "$CLASH_BASE_DIR/logs/clash.log" ]; then
+            echo "最近日志："
+            tail -n 10 "$CLASH_BASE_DIR/logs/clash.log"
+        fi
+    fi
 }
 
 function clashui() {
@@ -131,7 +156,7 @@ function clashui() {
 
 _merge_config_restart() {
     local backup="/tmp/rt.backup"
-    sudo cat "$CLASH_CONFIG_RUNTIME" 2>/dev/null | sudo tee $backup >/dev/null
+     cat "$CLASH_CONFIG_RUNTIME" 2>/dev/null |  tee $backup >/dev/null
     # shellcheck disable=SC2016
     "$BIN_YQ" eval-all '
       ########################################
@@ -192,9 +217,9 @@ _merge_config_restart() {
         ($mixin.proxy-groups.suffix // [])
       )
     ' "$CLASH_CONFIG_RAW" "$CLASH_CONFIG_MIXIN" |
-        sudo tee "$CLASH_CONFIG_RUNTIME" >/dev/null
+         tee "$CLASH_CONFIG_RUNTIME" >/dev/null
     _valid_config "$CLASH_CONFIG_RUNTIME" || {
-        sudo cat $backup | sudo tee "$CLASH_CONFIG_RUNTIME" >/dev/null
+         cat $backup |  tee "$CLASH_CONFIG_RUNTIME" >/dev/null
         _error_quit "验证失败：请检查 Mixin 配置"
     }
     clashrestart
@@ -203,10 +228,10 @@ _merge_config_restart() {
 function clashsecret() {
     case "$#" in
     0)
-        _okcat "当前密钥：$(sudo "$BIN_YQ" '.secret // ""' "$CLASH_CONFIG_RUNTIME")"
+        _okcat "当前密钥：$( "$BIN_YQ" '.secret // ""' "$CLASH_CONFIG_RUNTIME")"
         ;;
     1)
-        sudo "$BIN_YQ" -i ".secret = \"$1\"" "$CLASH_CONFIG_MIXIN" || {
+         "$BIN_YQ" -i ".secret = \"$1\"" "$CLASH_CONFIG_MIXIN" || {
             _failcat "密钥更新失败，请重新输入"
             return 1
         }
@@ -220,23 +245,23 @@ function clashsecret() {
 }
 
 _tunstatus() {
-    local tun_status=$(sudo "$BIN_YQ" '.tun.enable' "${CLASH_CONFIG_RUNTIME}")
+    local tun_status=$( "$BIN_YQ" '.tun.enable' "${CLASH_CONFIG_RUNTIME}")
     # shellcheck disable=SC2015
     [ "$tun_status" = 'true' ] && _okcat 'Tun 状态：启用' || _failcat 'Tun 状态：关闭'
 }
 
 _tunoff() {
     _tunstatus >/dev/null || return 0
-    sudo "$BIN_YQ" -i '.tun.enable = false' "$CLASH_CONFIG_MIXIN"
+     "$BIN_YQ" -i '.tun.enable = false' "$CLASH_CONFIG_MIXIN"
     _merge_config_restart && _okcat "Tun 模式已关闭"
 }
 
 _tunon() {
     _tunstatus 2>/dev/null && return 0
-    sudo "$BIN_YQ" -i '.tun.enable = true' "$CLASH_CONFIG_MIXIN"
+     "$BIN_YQ" -i '.tun.enable = true' "$CLASH_CONFIG_MIXIN"
     _merge_config_restart
     sleep 0.5s
-    sudo journalctl -u "$BIN_KERNEL_NAME" --since "1 min ago" | grep -E -m1 'unsupported kernel version|Start TUN listening error' && {
+     journalctl -u "$BIN_KERNEL_NAME" --since "1 min ago" | grep -E -m1 'unsupported kernel version|Start TUN listening error' && {
         _tunoff >&/dev/null
         _error_quit '不支持的内核版本'
     }
@@ -267,7 +292,7 @@ function clashupdate() {
         [ -n "$2" ] && url=$2
         ;;
     log)
-        sudo tail "${CLASH_UPDATE_LOG}" 2>/dev/null || _failcat "暂无更新日志"
+         tail "${CLASH_UPDATE_LOG}" 2>/dev/null || _failcat "暂无更新日志"
         return 0
         ;;
     *)
@@ -283,17 +308,17 @@ function clashupdate() {
 
     # 如果是自动更新模式，则设置定时任务
     [ "$is_auto" = true ] && {
-        sudo grep -qs 'clashupdate' "$CLASH_CRON_TAB" || echo "0 0 */2 * * $_SHELL -i -c 'clashupdate $url'" | sudo tee -a "$CLASH_CRON_TAB" >&/dev/null
+         grep -qs 'clashupdate' "$CLASH_CRON_TAB" || echo "0 0 */2 * * $_SHELL -i -c 'clashupdate $url'" |  tee -a "$CLASH_CRON_TAB" >&/dev/null
         _okcat "已设置定时更新订阅" && return 0
     }
 
     _okcat '👌' "正在下载：原配置已备份..."
-    sudo cat "$CLASH_CONFIG_RAW" | sudo tee "$CLASH_CONFIG_RAW_BAK" >&/dev/null
+     cat "$CLASH_CONFIG_RAW" |  tee "$CLASH_CONFIG_RAW_BAK" >&/dev/null
 
     _rollback() {
         _failcat '🍂' "$1"
-        sudo cat "$CLASH_CONFIG_RAW_BAK" | sudo tee "$CLASH_CONFIG_RAW" >&/dev/null
-        _failcat '❌' "[$(date +"%Y-%m-%d %H:%M:%S")] 订阅更新失败：$url" 2>&1 | sudo tee -a "${CLASH_UPDATE_LOG}" >&/dev/null
+         cat "$CLASH_CONFIG_RAW_BAK" |  tee "$CLASH_CONFIG_RAW" >&/dev/null
+        _failcat '❌' "[$(date +"%Y-%m-%d %H:%M:%S")] 订阅更新失败：$url" 2>&1 |  tee -a "${CLASH_UPDATE_LOG}" >&/dev/null
         _error_quit
     }
 
@@ -301,14 +326,14 @@ function clashupdate() {
     _valid_config "$CLASH_CONFIG_RAW" || _rollback "转换失败：已回滚配置，转换日志：$BIN_SUBCONVERTER_LOG"
 
     _merge_config_restart && _okcat '🍃' '订阅更新成功'
-    echo "$url" | sudo tee "$CLASH_CONFIG_URL" >&/dev/null
-    _okcat '✅' "[$(date +"%Y-%m-%d %H:%M:%S")] 订阅更新成功：$url" | sudo tee -a "${CLASH_UPDATE_LOG}" >&/dev/null
+    echo "$url" |  tee "$CLASH_CONFIG_URL" >&/dev/null
+    _okcat '✅' "[$(date +"%Y-%m-%d %H:%M:%S")] 订阅更新成功：$url" |  tee -a "${CLASH_UPDATE_LOG}" >&/dev/null
 }
 
 function clashmixin() {
     case "$1" in
     -e)
-        sudo vim "$CLASH_CONFIG_MIXIN" && {
+         vim "$CLASH_CONFIG_MIXIN" && {
             _merge_config_restart && _okcat "配置更新成功，已重启生效"
         }
         ;;
@@ -351,7 +376,7 @@ EOF
 
     _okcat "请求内核升级..."
     _get_ui_port
-    local secret=$(sudo "$BIN_YQ" '.secret // ""' "$CLASH_CONFIG_RUNTIME")
+    local secret=$( "$BIN_YQ" '.secret // ""' "$CLASH_CONFIG_RUNTIME")
     local res=$(
         curl -X POST \
             --silent \

@@ -39,7 +39,7 @@ function clashctl
 end
 
 function clashon
-    bash -i -c 'clashon; sudo tee /var/proxy >/dev/null <<EOF
+    bash -i -c 'clashon; tee /var/proxy >/dev/null <<EOF
 export http_proxy=$http_proxy
 export https_proxy=$http_proxy
 export HTTP_PROXY=$http_proxy
