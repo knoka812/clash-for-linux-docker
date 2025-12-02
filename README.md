@@ -9,29 +9,31 @@
 - 默认安装 `mihomo` 内核，[可选安装](https://github.com/nelvko/clash-for-linux-install/wiki/FAQ#%E5%AE%89%E8%A3%85-clash-%E5%86%85%E6%A0%B8) `clash`。
 - 支持使用 [subconverter](https://github.com/tindy2013/subconverter) 进行本地订阅转换。
 - 多架构支持，适配主流 `Linux` 发行版：`CentOS 7.6`、`Debian 12`、`Ubuntu 24.04.1 LTS`。
+- 无需再进行更改，本版本可在docker内直接运行使用~，代理本人推荐ikuuu平台，速度还是很快的：[ikuuu](https://ikuuu.de/auth/register?code=m6gp)
 
 ## 快速开始
 
 ### 环境要求
 
-- 用户权限：`root` 或 `sudo` 用户。普通用户请戳：[#91](https://github.com/nelvko/clash-for-linux-install/issues/91)
 - `shell` 支持：`bash`、`zsh`、`fish`。
 
 ### 一键安装
 
-目前 `master` 分支仅适用于 `x86_64` 架构且使用 `systemd` 的系统环境，其他初始化系统/架构请使用 `feat-init` 分支：[一键安装-多架构](https://github.com/nelvko/clash-for-linux-install/wiki#%E4%B8%80%E9%94%AE%E5%AE%89%E8%A3%85-%E5%A4%9A%E6%9E%B6%E6%9E%84)
+本分支项目已经进行修改，目前 `master` 分支适用于 `x86_64` 架构的docker环境，
+
+其他初始化系统/架构请使用原作者提供的 `feat-init` 分支：[一键安装-多架构](https://github.com/nelvko/clash-for-linux-install/wiki#%E4%B8%80%E9%94%AE%E5%AE%89%E8%A3%85-%E5%A4%9A%E6%9E%B6%E6%9E%84)
 
 ```bash
 git clone --branch master --depth 1 https://gh-proxy.com/https://github.com/nelvko/clash-for-linux-install.git \
   && cd clash-for-linux-install \
-  && sudo bash install.sh
+  && bash install.sh
 ```
 
 > 如遇问题，请在查阅[常见问题](https://github.com/nelvko/clash-for-linux-install/wiki/FAQ)及 [issue](https://github.com/nelvko/clash-for-linux-install/issues?q=is%3Aissue) 未果后进行反馈。
 
 - 上述克隆命令使用了[加速前缀](https://gh-proxy.com/)，如失效请更换其他[可用链接](https://ghproxy.link/)。
 - 默认通过远程订阅获取配置进行安装，本地配置安装详见：[#39](https://github.com/nelvko/clash-for-linux-install/issues/39)
-- 没有订阅？[click me](https://次元.net/auth/register?code=oUbI)
+- 没有订阅？[click me](https://ikuuu.de/auth/register?code=m6gp)
 
 ### 命令一览
 
@@ -93,6 +95,7 @@ $ clashsecret
 
 - 通过浏览器打开 Web 控制台，实现可视化操作：切换节点、查看日志等。
 - 若暴露到公网使用建议定期更换密钥。
+- 若使用funhpc趣算云平台，仅需在控制台-对应实例更多配置-暴露端口-暴露9090端口，链接+/ui即可直接访问web控制台，如：https://mkos0lxrqhatr4pkmakea100.funhpc.com:30499/ui
 
 ### 更新订阅
 
@@ -164,19 +167,11 @@ sudo bash uninstall.sh
 - [yacd: Web 控制台](https://github.com/haishanh/yacd)
 - [yq: 处理 yaml](https://github.com/mikefarah/yq)
 
-## Star History
-
-<a href="https://www.star-history.com/#nelvko/clash-for-linux-install&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=nelvko/clash-for-linux-install&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=nelvko/clash-for-linux-install&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=nelvko/clash-for-linux-install&type=Date" />
- </picture>
-</a>
 
 ## Thanks
 
 [@鑫哥](https://github.com/TrackRay)
+[@nelvko](https://github.com/nelvko)
 
 ## 特别声明
 
